@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Devdock</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --text: #1b1b1a; --muted: #6b6b66; --line: #e4e3df;
+    --accent: #2f6fde; --run: #1f9d55; --run-bg: #e5f5ec; --stop: #8a8a84; --stop-bg: #efefec;
+    --warn: #c27c0e; --warn-bg: #fbf0dc; --err: #c8372d; --err-bg: #fbe6e4; --code: #f1f0ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1d1d1b; --text: #ecebe6; --muted: #9a9993; --line: #2e2e2b;
+      --accent: #6f9cf0; --run: #4cc584; --run-bg: #193325; --stop: #8f8f89; --stop-bg: #262624;
+      --warn: #e2a64a; --warn-bg: #352a17; --err: #ef6d62; --err-bg: #3a1e1b; --code: #111110;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 28px 16px 80px; }
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  .summary { color: var(--muted); }
+  .grow { flex: 1; }
+  input[type=search] { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 10px; font: inherit; width: 220px; max-width: 100%; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    border-radius: 7px; padding: 5px 11px; cursor: pointer; white-space: nowrap; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger:hover:not(:disabled) { border-color: var(--err); color: var(--err); }
+  button.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 5px 7px; }
+  button.ghost:hover:not(:disabled) { color: var(--text); border-color: transparent; }
+  .banner { background: var(--err-bg); color: var(--err); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+  .list { display: grid; gap: 10px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; flex-wrap: wrap; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--stop); flex: none; }
+  .dot.on { background: var(--run); box-shadow: 0 0 0 3px var(--run-bg); }
+  .dot.partial { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-bg); }
+  .dot.busy { background: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .name { font-weight: 600; }
+  .path { color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta { min-width: 0; flex: 1 1 220px; }
+  .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--stop-bg); color: var(--muted); }
+  .pill.on { background: var(--run-bg); color: var(--run); }
+  .pill.err { background: var(--err-bg); color: var(--err); }
+  .pill.busy { background: var(--warn-bg); color: var(--warn); }
+  .ports a { color: var(--accent); text-decoration: none; font-size: 13px; margin-right: 8px; }
+  .ports a:hover { text-decoration: underline; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .services { border-top: 1px solid var(--line); padding: 4px 14px 10px; }
+  .svc { display: grid; grid-template-columns: 14px minmax(90px, 160px) 1fr auto; gap: 10px; align-items: center;
+    padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .svc:last-child { border-bottom: 0; }
+  .svc .status { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .svc .oneoff { font-size: 11px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 8px 0; font-size: 13px; }
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--panel); color: var(--text);
+    width: min(960px, calc(100vw - 32px)); max-height: calc(100vh - 64px); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  .dlg-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  pre { margin: 0; padding: 12px 14px; background: var(--code); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap; word-break: break-all; max-height: calc(100vh - 160px); overflow: auto; }
+  @media (max-width: 560px) {
+    .svc { grid-template-columns: 14px 1fr; }
+    .svc .status { grid-column: 2; }
+    .svc .actions { grid-column: 2; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Devdock</h1>
+    <span class="summary" id="summary"></span>
+    <span class="grow"></span>
+    <input type="search" id="q" placeholder="Filter projects…">
+    <button id="refresh" class="ghost" title="Refresh">↻</button>
+  </header>
+  <div id="banner" class="banner" hidden></div>
+  <div id="list" class="list"></div>
+</div>
+
+<dialog id="dlg">
+  <div class="dlg-head">
+    <strong id="dlg-title"></strong>
+    <span id="dlg-state" class="pill"></span>
+    <span class="grow"></span>
+    <button id="dlg-reload" class="ghost">Reload</button>
+    <button id="dlg-close">Close</button>
+  </div>
+  <pre id="dlg-body"></pre>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let data = { projects: [] };
+const open = new Set(JSON.parse(safeGet("devdock.open") || "[]"));
+let dialogMode = null; // { kind: 'job'|'logs', project, service }
+
+function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function safeSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+
+async function load() {
+  try {
+    const r = await fetch("/api/projects");
+    data = await r.json();
+    $("#banner").hidden = data.docker;
+    if (!data.docker) $("#banner").textContent = "Can't reach Docker: " + (data.error || "is Docker Desktop running?");
+  } catch (e) {
+    $("#banner").hidden = false;
+    $("#banner").textContent = "Devdock server is not responding.";
+  }
+  render();
+}
+
+function projectState(p) {
+  if (p.job?.running) return "busy";
+  const svcs = p.containers.filter((c) => !c.oneoff);
+  if (!p.running) return "off";
+  // A project counts as fully up when every long-running service (not one-shot setup tasks) is running.
+  const longRunning = svcs.filter((c) => !(c.state === "exited" && c.status.startsWith("Exited (0)")));
+  return longRunning.every((c) => c.state === "running") ? "on" : "partial";
+}
+
+function render() {
+  const q = $("#q").value.trim().toLowerCase();
+  const list = data.projects.filter((p) => !q || p.name.toLowerCase().includes(q) || p.dir.toLowerCase().includes(q));
+  const up = data.projects.filter((p) => p.running).length;
+  $("#summary").textContent = `${up} of ${data.projects.length} projects running`;
+
+  $("#list").innerHTML = list.map((p) => {
+    const st = projectState(p);
+    const busy = !!p.job?.running;
+    const dot = { on: "on", partial: "partial", busy: "busy", off: "" }[st];
+    const pill = busy ? `<span class="pill busy">${esc(p.job.action)}…</span>`
+      : p.job && p.job.ok === false ? `<button class="pill err" data-job="${esc(p.name)}" style="border:0">last action failed</button>`
+      : p.running ? `<span class="pill on">${p.running} running</span>` : `<span class="pill">stopped</span>`;
+    const ports = p.ports.map((port) => `<a href="http://localhost:${port}" target="_blank" rel="noopener">:${port} ↗</a>`).join("");
+    const expanded = open.has(p.name);
+    return `
+    <div class="card">
+      <div class="row">
+        <span class="dot ${dot}"></span>
+        <div class="meta">
+          <div><span class="name">${esc(p.name)}</span> &nbsp;${pill}</div>
+          <div class="path" title="${esc(p.config)}">${esc(p.dir.replace(/^\/Users\/[^/]+/, "~"))}</div>
+        </div>
+        <span class="ports">${ports}</span>
+        <div class="actions">
+          ${st === "partial" ? `<button class="primary" data-act="up" data-p="${esc(p.name)}" title="Start the stopped services">Start</button>` : ""}
+          ${p.running
+            ? `<button data-act="restart" data-p="${esc(p.name)}" ${busy ? "disabled" : ""}>Restart</button>
+               <button class="danger" data-act="stop" data-p="${esc(p.name)}" ${busy ? "disabled" : ""}>Stop</button>`
+            : `<button class="primary" data-act="up" data-p="${esc(p.name)}" ${busy ? "disabled" : ""}>Start</button>`}
+          <button class="ghost" data-act="rebuild" data-p="${esc(p.name)}" ${busy ? "disabled" : ""} title="docker compose up -d --build">Rebuild</button>
+          <button class="ghost" data-act="down" data-p="${esc(p.name)}" ${busy ? "disabled" : ""} title="Remove containers (volumes are kept)">Down</button>
+          ${p.job ? `<button class="ghost" data-job="${esc(p.name)}" title="Output of last action">Output</button>` : ""}
+          <button class="ghost" data-logs="${esc(p.name)}">Logs</button>
+          <button class="ghost" data-toggle="${esc(p.name)}" aria-expanded="${expanded}">${expanded ? "▾" : "▸"} ${p.containers.length}</button>
+        </div>
+      </div>
+      ${expanded ? `<div class="services">${p.containers.length ? p.containers.map((c) => `
+        <div class="svc">
+          <span class="dot ${c.state === "running" ? "on" : ""}"></span>
+          <div><span>${esc(c.service)}</span>${c.oneoff ? ` <span class="oneoff">one-off</span>` : ""}</div>
+          <div class="status" title="${esc(c.name)} · ${esc(c.image)}">${esc(c.status)}${c.ports.length ? " · " + c.ports.map((x) => `<a href="http://localhost:${x}" target="_blank" rel="noopener" style="color:var(--accent)">:${x}</a>`).join(" ") : ""}</div>
+          <div class="actions">
+            ${c.oneoff ? "" : c.state === "running"
+              ? `<button data-act="restart" data-p="${esc(p.name)}" data-s="${esc(c.service)}" ${busy ? "disabled" : ""}>Restart</button>
+                 <button class="danger" data-act="stop" data-p="${esc(p.name)}" data-s="${esc(c.service)}" ${busy ? "disabled" : ""}>Stop</button>`
+              : `<button data-act="up" data-p="${esc(p.name)}" data-s="${esc(c.service)}" ${busy ? "disabled" : ""}>Start</button>`}
+            ${c.oneoff ? "" : `<button class="ghost" data-logs="${esc(p.name)}" data-s="${esc(c.service)}">Logs</button>`}
+          </div>
+        </div>`).join("") : `<div class="empty">No containers yet. Start creates them from ${esc(p.config.split("/").pop())}.</div>`}
+      </div>` : ""}
+    </div>`;
+  }).join("") || `<div class="empty">No compose projects found.</div>`;
+}
+
+async function act(project, action, service) {
+  if (action === "down" && !confirm(`Remove all containers for ${project}? Volumes (databases) are kept.`)) return;
+  const r = await fetch(`/api/projects/${encodeURIComponent(project)}/action`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, service }),
+  });
+  if (!r.ok) alert((await r.json()).error);
+  load();
+}
+
+async function showDialog(mode) {
+  dialogMode = mode;
+  const dlg = $("#dlg");
+  $("#dlg-title").textContent = mode.kind === "job"
+    ? `${mode.project} — last action` : `${mode.project}${mode.service ? " / " + mode.service : ""} — logs`;
+  if (!dlg.open) { $("#dlg-body").textContent = "Loading…"; dlg.showModal(); }
+  await refreshDialog(true);
+}
+
+async function refreshDialog(scroll) {
+  if (!dialogMode || !$("#dlg").open) return;
+  const { kind, project, service } = dialogMode;
+  const body = $("#dlg-body");
+  const atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 20;
+  const url = kind === "job"
+    ? `/api/projects/${encodeURIComponent(project)}/job`
+    : `/api/projects/${encodeURIComponent(project)}/logs${service ? "?service=" + encodeURIComponent(service) : ""}`;
+  const j = await (await fetch(url)).json();
+  body.textContent = j.log || "(no output)";
+  const st = $("#dlg-state");
+  if (kind === "job") {
+    st.hidden = false;
+    st.className = "pill " + (j.running ? "busy" : j.ok ? "on" : "err");
+    st.textContent = j.running ? "running" : j.ok ? "done" : "failed";
+  } else st.hidden = true;
+  if (scroll || atBottom) body.scrollTop = body.scrollHeight;
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.act) {
+    act(b.dataset.p, b.dataset.act, b.dataset.s);
+    showDialog({ kind: "job", project: b.dataset.p });
+  } else if (b.dataset.job) showDialog({ kind: "job", project: b.dataset.job });
+  else if (b.dataset.logs) showDialog({ kind: "logs", project: b.dataset.logs, service: b.dataset.s });
+  else if (b.dataset.toggle) {
+    const n = b.dataset.toggle;
+    open.has(n) ? open.delete(n) : open.add(n);
+    safeSet("devdock.open", JSON.stringify([...open]));
+    render();
+  }
+});
+$("#dlg-close").onclick = () => $("#dlg").close();
+$("#dlg-reload").onclick = () => refreshDialog(true);
+$("#dlg").addEventListener("close", () => { dialogMode = null; });
+$("#refresh").onclick = load;
+$("#q").oninput = render;
+
+load();
+setInterval(() => {
+  const anyBusy = data.projects.some((p) => p.job?.running);
+  if (anyBusy || !document.hidden) load();
+  if (dialogMode?.kind === "job") refreshDialog(false);
+}, 2500);
+</script>
+</body>
+</html>
