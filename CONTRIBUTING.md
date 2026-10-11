@@ -41,4 +41,6 @@ Then open http://127.0.0.1:7777. The server reads `index.html` on every request,
 2. Make your change and test it against real compose projects.
 3. Open a pull request describing what changed and why, with a screenshot for UI changes.
 
+Please note that this project has a [Code of Conduct](CODE_OF_CONDUCT.md); by participating you agree to follow it.
+
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
