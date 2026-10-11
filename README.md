@@ -1,5 +1,7 @@
 # Devdock
 
+[![CI](https://github.com/BasharLulu/devdock/actions/workflows/ci.yml/badge.svg)](https://github.com/BasharLulu/devdock/actions/workflows/ci.yml)
+
 A tiny local dashboard for starting and stopping Docker Compose dev projects.
 
 Devdock scans `~/Sites` for compose projects and gives you one page to see what's running, start/stop/restart/rebuild whole projects or single services, open their published ports, and tail logs.
@@ -23,6 +25,14 @@ node server.mjs
 ```
 
 Then open http://127.0.0.1:7777.
+
+## Testing
+
+```bash
+node test/smoke.mjs
+```
+
+Starts the server on port 7799 against a throwaway compose project (a `busybox` container) and checks discovery, the localhost guards, start/stop/down and logs. Needs Docker. CI runs it on Node 18, 20, 22 and 24.
 
 ## Configuration
 

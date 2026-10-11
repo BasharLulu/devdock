@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- End-to-end smoke test (`test/smoke.mjs`) and a GitHub Actions CI workflow running it on Node 18, 20, 22 and 24.
+- Project docs: changelog, contributing guide, code of conduct, security policy, and issue and pull request templates.
+
 ## [1.0.0] - 2026-10-11
 
 First release.

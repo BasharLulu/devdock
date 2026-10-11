@@ -27,6 +27,12 @@ node server.mjs
 
 Then open http://127.0.0.1:7777. The server reads `index.html` on every request, so refresh the page to see UI changes; restart the server after editing `server.mjs`.
 
+Before opening a pull request, run the smoke test (needs Docker):
+
+```bash
+node test/smoke.mjs
+```
+
 ## Guidelines
 
 - **No dependencies.** Node built-ins on the server, plain HTML/CSS/JS in a single `index.html` on the client. No npm packages, frameworks or build steps.
