@@ -126,6 +126,8 @@ Devdock can start and stop containers, so it is locked to your machine:
 
 There is no authentication — don't expose the port.
 
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE)
