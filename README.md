@@ -125,3 +125,7 @@ Devdock can start and stop containers, so it is locked to your machine:
 - Only runs commands for projects it discovered, with a fixed set of actions and validated service names; arguments are passed to `docker` directly, never through a shell.
 
 There is no authentication — don't expose the port.
+
+## License
+
+[MIT](LICENSE)
