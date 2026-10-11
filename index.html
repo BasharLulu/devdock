@@ -142,12 +142,22 @@
   .svc-chip .dot { width: 6px; height: 6px; box-shadow: none; }
   .svc-chip.on { color: var(--text); }
 
-  .foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+  .foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
     font-size: 12.5px; color: var(--muted); min-height: 30px; }
   .port { display: inline-flex; align-items: center; gap: 4px; font: 12px var(--mono); color: var(--accent);
     background: var(--accent-soft); padding: 2px 8px; border-radius: 6px; text-decoration: none; font-weight: 500; }
   .port:hover { filter: brightness(1.08); text-decoration: underline; }
   .port svg { width: 11px; height: 11px; }
+  .site { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text);
+    background: var(--surface-2); border: 1px solid var(--line); padding: 2px 8px; border-radius: 6px; text-decoration: none;
+    max-width: 100%; min-width: 0; }
+  .site:hover { border-color: var(--line-strong); }
+  .site .h { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .site .dot { width: 7px; height: 7px; box-shadow: none; }
+  .site svg { width: 11px; height: 11px; flex: none; color: var(--muted); }
+  .site svg.globe { width: 12px; height: 12px; }
+  .ext-state { font-size: 12px; color: var(--faint); display: inline-flex; align-items: center; gap: 5px; }
+  .ext-state.err { color: var(--red); }
   .expand { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 2px 4px;
     color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; border-radius: 6px; }
   .expand:hover { color: var(--text); }
@@ -238,6 +248,7 @@
         Devdock
       </div>
       <span class="grow"></span>
+      <span class="ext-state" id="pingerer-state" hidden></span>
       <span class="updated" id="updated"></span>
       <label class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -302,6 +313,7 @@ const I = {
   term: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 4 4-4 4M12 16h7"/></svg>',
   more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
   ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>',
+  globe: '<svg class="globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
   chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
 };
@@ -327,8 +339,9 @@ async function load() {
     detectFinishedJobs(data.projects);
     state.data = data;
     state.lastFetch = Date.now();
-    $("#banner").hidden = data.docker;
+    $("#banner").hidden = data.docker && !data.configError;
     if (!data.docker) $("#banner").innerHTML = `Can't reach Docker — is Docker Desktop running? <span style="opacity:.7;font-weight:400">${esc(data.error || "")}</span>`;
+    else if (data.configError) $("#banner").textContent = data.configError;
   } catch {
     $("#banner").hidden = false;
     $("#banner").textContent = "Devdock server isn't responding.";
@@ -349,7 +362,20 @@ function detectFinishedJobs(projects) {
   }
 }
 
+function ago(iso) {
+  const s = Math.max(0, (Date.now() - new Date(iso)) / 1000);
+  for (const [n, u] of [[86400, "d"], [3600, "h"], [60, "m"]]) if (s >= n) return `${Math.floor(s / n)}${u} ago`;
+  return "just now";
+}
+
 function tickUpdated() {
+  const pg = state.data.pingerer, el = $("#pingerer-state");
+  el.hidden = !pg;
+  if (pg) {
+    el.className = "ext-state" + (pg.error ? " err" : "");
+    el.innerHTML = `<span class="dot ${pg.error ? "err" : pg.checkedAt ? "on" : "busy"}" style="width:6px;height:6px;box-shadow:none"></span>Pingerer`;
+    el.title = pg.error ? `Pingerer: ${pg.error}` : pg.checkedAt ? `Site status from Pingerer, checked ${ago(pg.checkedAt)}` : "Loading site status from Pingerer…";
+  }
   if (!state.lastFetch) return;
   const s = Math.round((Date.now() - state.lastFetch) / 1000);
   $("#updated").textContent = s < 3 ? "Live" : `Updated ${s}s ago`;
@@ -407,7 +433,7 @@ function render() {
   const q = $("#q").value.trim().toLowerCase();
   const list = withState.filter((p) =>
     (state.filter === "all" || p.st === state.filter || (state.filter === "on" && p.st === "busy" && p.running)) &&
-    (!q || p.name.toLowerCase().includes(q) || p.dir.toLowerCase().includes(q)));
+    (!q || p.name.toLowerCase().includes(q) || p.dir.toLowerCase().includes(q) || p.links.some((l) => l.host.includes(q))));
 
   $("#grid").innerHTML = list.length ? list.map(card).join("") : `
     <div class="empty" style="grid-column:1/-1">
@@ -459,6 +485,7 @@ function card(p) {
       </div>
       <div class="svcs">${chips}</div>
       <div class="foot">
+        ${p.links.map(siteLink).join("")}
         ${p.ports.map((port) => `<a class="port" href="http://localhost:${port}" target="_blank" rel="noopener">localhost:${port}${I.ext}</a>`).join("")}
         <span>${esc(uptime.replace(/^Up /, "Up "))}</span>
         <button class="expand" data-toggle="${n}" aria-expanded="${expanded}">${svcs.length} service${svcs.length === 1 ? "" : "s"}${oneoffs ? ` + ${oneoffs} run` : ""}${I.chev}</button>
@@ -466,6 +493,17 @@ function card(p) {
     </div>
     ${expanded ? serviceTable(p, busy) : ""}
   </article>`;
+}
+
+const SITE_DOT = { up: "on", degraded: "warn", down: "err", pending: "off", paused: "off" };
+
+function siteLink(l) {
+  const monitored = l.status in SITE_DOT;
+  const title = `${l.label} · ${l.url}` + (monitored
+    ? `\n${l.status[0].toUpperCase() + l.status.slice(1)}${l.since ? ` since ${ago(l.since)}` : ""} (Pingerer)`
+    : state.data.pingerer ? "\nNot monitored in Pingerer" : "");
+  return `<a class="site" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" title="${esc(title)}">
+    ${monitored ? `<span class="dot ${SITE_DOT[l.status]}"></span>` : I.globe}<span class="h">${esc(l.host)}</span>${I.ext}</a>`;
 }
 
 function menu(p, busy) {

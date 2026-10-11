@@ -3,7 +3,7 @@
 // Run: node server.mjs   then open http://127.0.0.1:7777
 import http from "node:http";
 import { execFile, spawn } from "node:child_process";
-import { readFile, readdir, access } from "node:fs/promises";
+import { readFile, readdir, access, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -15,6 +15,8 @@ const SCAN_DIRS = (process.env.DEVDOCK_DIRS || path.join(os.homedir(), "Sites"))
 const COMPOSE_NAMES = ["docker-compose.dev.yml", "docker-compose.dev.yaml", "compose.dev.yml", "compose.dev.yaml"];
 const DOCKER = ["/usr/local/bin/docker", "/opt/homebrew/bin/docker"].find(existsSync) || "docker";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const CONFIG_FILE = process.env.DEVDOCK_CONFIG || path.join(os.homedir(), ".config", "devdock", "config.json");
+const PINGERER_TTL = 60_000;
 
 // project name -> { running: bool, action, log: string, ok: bool|null, at }
 const jobs = new Map();
@@ -52,12 +54,127 @@ async function scanComposeFiles() {
   return found;
 }
 
+// ~/.config/devdock/config.json, re-read whenever it changes on disk.
+let config = { mtimeMs: null, data: {}, error: null };
+async function loadConfig() {
+  let st;
+  try { st = await stat(CONFIG_FILE); } catch { config = { mtimeMs: null, data: {}, error: null }; return config; }
+  if (st.mtimeMs === config.mtimeMs) return config;
+  try {
+    const data = JSON.parse(await readFile(CONFIG_FILE, "utf8"));
+    config = { mtimeMs: st.mtimeMs, data, error: null };
+    if (data.pingerer?.token && st.mode & 0o077) console.warn(`Warning: ${CONFIG_FILE} holds a token but is readable by other users. Run: chmod 600 ${CONFIG_FILE}`);
+  } catch (e) {
+    config = { mtimeMs: st.mtimeMs, data: {}, error: `Couldn't read ${CONFIG_FILE.replace(os.homedir(), "~")}: ${e.message}` };
+  }
+  return config;
+}
+
+const normHost = (h) => String(h).trim().toLowerCase().replace(/^www\./, "").replace(/:\d+$/, "");
+// Template defaults, wildcards, IPs and ERB/env interpolation aren't real public hostnames.
+const NOT_A_SITE = /(^|\.)example\.(com|org|net)$|^localhost$|^\d{1,3}(\.\d{1,3}){3}$|[*<>%{}$\s\[\]]/;
+const unquote = (v) => v.trim().replace(/^["']|["']$/g, "");
+
+// Reads proxy.host / proxy.hosts from a Kamal deploy file without a YAML parser.
+function kamalHosts(yaml) {
+  const lines = yaml.split("\n");
+  const start = lines.findIndex((l) => /^proxy:\s*(#.*)?$/.test(l));
+  if (start < 0) return [];
+  const hosts = [];
+  let childIndent = null, inHosts = false;
+  for (const raw of lines.slice(start + 1)) {
+    if (!raw.trim() || /^\s*#/.test(raw)) continue;
+    const line = raw.replace(/\s+#.*$/, "");
+    const indent = line.match(/^ */)[0].length;
+    if (indent === 0) break;
+    childIndent ??= indent;
+    const t = line.trim();
+    if (inHosts && (indent > childIndent || t.startsWith("- "))) {
+      const item = t.match(/^-\s*(.+)$/);
+      if (item) hosts.push(unquote(item[1]));
+      continue;
+    }
+    if (indent !== childIndent) continue;
+    inHosts = /^hosts:$/.test(t);
+    const one = t.match(/^host:\s*(.+)$/);
+    const inline = t.match(/^hosts:\s*\[(.*)\]$/);
+    if (one) hosts.push(unquote(one[1]));
+    else if (inline) hosts.push(...inline[1].split(",").map(unquote));
+  }
+  return hosts.map((h) => h.toLowerCase()).filter((h) => h && !NOT_A_SITE.test(h));
+}
+
+// Links from config/deploy.yml (production) and config/deploy.<destination>.yml, plus config.json overrides.
+async function projectLinks(name, dir, overrides = {}) {
+  const links = [];
+  if (overrides.detect !== false) {
+    let files = [];
+    try { files = await readdir(path.join(dir, "config")); } catch {}
+    for (const f of files.sort()) {
+      const m = f.match(/^deploy(?:\.([\w.-]+))?\.ya?ml$/);
+      if (!m) continue;
+      let yaml = "";
+      try { yaml = await readFile(path.join(dir, "config", f), "utf8"); } catch { continue; }
+      for (const host of kamalHosts(yaml)) links.push({ label: m[1] || "production", url: `https://${host}`, source: "kamal" });
+    }
+  }
+  for (const l of overrides.links || []) {
+    let u;
+    try { u = new URL(l.url); } catch { continue; }
+    if (!/^https?:$/.test(u.protocol)) continue;
+    const i = links.findIndex((x) => normHost(new URL(x.url).host) === normHost(u.host));
+    const link = { label: String(l.label || "site"), url: u.href.replace(/\/$/, ""), source: "config" };
+    i >= 0 ? (links[i] = link) : links.push(link);
+  }
+  const seen = new Set();
+  return links
+    .map((l) => ({ ...l, host: new URL(l.url).host }))
+    .filter((l) => !seen.has(normHost(l.host)) && seen.add(normHost(l.host)))
+    .sort((a, b) => (b.label === "production") - (a.label === "production"));
+}
+
+// Site status from Pingerer (https://pingerer.com), fetched at most once a minute and only when a token is configured.
+const pingerer = { key: null, at: 0, inflight: null, byHost: new Map(), error: null };
+function refreshPingerer(p) {
+  const key = p?.token ? JSON.stringify([p.token, p.url, p.accounts]) : null;
+  if (key !== pingerer.key) Object.assign(pingerer, { key, at: 0, byHost: new Map(), error: null });
+  if (!key || pingerer.inflight || Date.now() - pingerer.at < PINGERER_TTL) return pingerer.inflight;
+  pingerer.inflight = (async () => {
+    const byHost = new Map();
+    try {
+      const base = new URL(p.url || "https://pingerer.com");
+      if (base.protocol !== "https:" && !/^(127\.0\.0\.1|localhost)$/.test(base.hostname)) throw new Error("pingerer.url must use https");
+      for (const account of p.accounts?.length ? p.accounts : [null]) {
+        for (let page = 1; page;) {
+          const r = await fetch(new URL(`/api/v1/sites?per_page=100&page=${page}`, base), {
+            headers: { authorization: `Bearer ${p.token}`, accept: "application/json", ...(account && { "pingerer-account": String(account) }) },
+            signal: AbortSignal.timeout(10_000),
+          });
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(body.message || body.error || `HTTP ${r.status}`);
+          for (const s of body.data || []) byHost.set(normHost(s.host), { status: s.paused ? "paused" : s.status, since: s.last_status_change_at });
+          page = body.meta?.next_page || 0;
+        }
+      }
+      if (key === pingerer.key) Object.assign(pingerer, { byHost, error: null });
+    } catch (e) {
+      if (key === pingerer.key) pingerer.error = e.name === "TimeoutError" ? "request timed out" : e.message;
+    } finally {
+      if (key === pingerer.key) pingerer.at = Date.now();
+      pingerer.inflight = null;
+    }
+  })();
+  return pingerer.inflight;
+}
+
 function pickConfig(configFiles) {
   const files = configFiles.split(",").filter(Boolean);
   return files.find((f) => !f.includes("/.claude/worktrees/") && !f.includes("/copilot-worktrees/")) || files[0];
 }
 
 async function listProjects() {
+  const { data: settings, error: configError } = await loadConfig();
+  refreshPingerer(settings.pingerer);
   const [scanned, ls, ps] = await Promise.all([
     scanComposeFiles(),
     run(["compose", "ls", "-a", "--format", "json"]),
@@ -96,7 +213,7 @@ async function listProjects() {
     }
   }
 
-  const projects = [...configs].map(([name, config]) => {
+  const projects = (await Promise.all([...configs].map(async ([name, config]) => {
     const containers = (byProject.get(name) || []).sort((a, b) =>
       a.oneoff - b.oneoff || a.service.localeCompare(b.service));
     const running = containers.filter((c) => c.state === "running").length;
@@ -109,10 +226,20 @@ async function listProjects() {
       running,
       ports: [...new Set(containers.filter((c) => c.state === "running").flatMap((c) => c.ports))],
       job: job ? { running: job.running, action: job.action, ok: job.ok, at: job.at } : null,
+      links: (await projectLinks(name, path.dirname(config), settings.projects?.[name])).map((l) => {
+        const status = pingerer.byHost.get(normHost(l.host));
+        return status ? { ...l, ...status } : l;
+      }),
     };
-  }).sort((a, b) => (b.running > 0) - (a.running > 0) || a.name.localeCompare(b.name));
+  }))).sort((a, b) => (b.running > 0) - (a.running > 0) || a.name.localeCompare(b.name));
 
-  return { docker: ls.ok, error: ls.ok ? null : ls.stderr.trim(), projects };
+  return {
+    docker: ls.ok,
+    error: ls.ok ? null : ls.stderr.trim(),
+    configError,
+    pingerer: pingerer.key ? { error: pingerer.error, checkedAt: pingerer.at || null } : null,
+    projects,
+  };
 }
 
 const ACTIONS = {

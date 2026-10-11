@@ -40,6 +40,60 @@ Starts the server on port 7799 against a throwaway compose project (a `busybox` 
 | -------------- | ---------- | -------------------------------------------------- |
 | `PORT`         | `7777`     | Port to listen on (always bound to `127.0.0.1`)    |
 | `DEVDOCK_DIRS` | `~/Sites`  | Colon-separated list of directories to scan        |
+| `DEVDOCK_CONFIG` | `~/.config/devdock/config.json` | Path to the optional [config file](#config-file) |
+
+## Deployed site links
+
+Each card shows links to where the project is deployed, next to its `localhost` ports.
+
+Links are read from [Kamal](https://kamal-deploy.org) deploy configs in the project: `proxy.host` / `proxy.hosts` in `config/deploy.yml` (labelled *production*) and in each `config/deploy.<destination>.yml` (labelled with the destination name, e.g. *staging*). Wildcards, IP addresses, ERB/env interpolation and template placeholders like `app.example.com` are skipped. Links always use `https://`.
+
+To add links Devdock can't detect, rename them, or turn detection off for a project, use the [config file](#config-file).
+
+### Site status from Pingerer
+
+If you use [Pingerer](https://pingerer.com) for uptime monitoring, Devdock can show each site's status as a dot on its link: green (up), amber (degraded), red (down) or grey (pending/paused). Sites Pingerer doesn't monitor keep a plain globe icon.
+
+1. Create a **read-only** API token at https://pingerer.com/api_tokens.
+2. Add it to the config file under `pingerer.token`.
+
+Devdock fetches `GET /api/v1/sites` at most once a minute, only while the dashboard is open, and matches sites to links by hostname. The token stays on the server and is never sent to the browser. Without a token, Devdock never contacts Pingerer.
+
+## Config file
+
+Optional. Devdock reads `~/.config/devdock/config.json` (or the path in `DEVDOCK_CONFIG`) and picks up changes without a restart.
+
+```json
+{
+  "pingerer": {
+    "token": "YOUR_READ_ONLY_TOKEN",
+    "accounts": ["acct_123", "acct_456"]
+  },
+  "projects": {
+    "myapp-dev": {
+      "links": [
+        { "label": "production", "url": "https://myapp.com" },
+        { "label": "admin", "url": "https://admin.myapp.com" }
+      ]
+    },
+    "other-dev": { "detect": false, "links": [{ "label": "site", "url": "https://other.example.org" }] }
+  }
+}
+```
+
+| Key | Description |
+| --- | --- |
+| `pingerer.token` | Pingerer API token. Read-only is enough. |
+| `pingerer.accounts` | Optional Pingerer account IDs to query (sent as the `Pingerer-Account` header). Defaults to the token's account. |
+| `pingerer.url` | Optional, defaults to `https://pingerer.com`. |
+| `projects.<name>.links` | Extra links for a compose project, by its project name. A link with the same host as a detected one replaces it. Only `http`/`https` URLs are accepted. |
+| `projects.<name>.detect` | Set to `false` to ignore Kamal configs for that project. |
+
+The file can hold a token, so keep it private:
+
+```bash
+chmod 600 ~/.config/devdock/config.json
+```
 
 ## How projects are found
 
@@ -132,6 +186,7 @@ Devdock can start and stop containers, so it is locked to your machine:
 
 - Listens on `127.0.0.1` only.
 - Rejects requests whose `Host` isn't `127.0.0.1`/`localhost` (blocks DNS rebinding) and cross-origin `POST`s.
+- Only contacts the internet if you configure a Pingerer token, and then only Pingerer's API. The token never reaches the browser.
 - Only runs commands for projects it discovered, with a fixed set of actions and validated service names; arguments are passed to `docker` directly, never through a shell.
 
 There is no authentication — don't expose the port.

@@ -31,6 +31,8 @@ Devdock can start, stop and remove Docker containers, so it is designed to be re
 - Actions are limited to a fixed set (`up`, `up --build`, `stop`, `restart`, `down`) on projects Devdock discovered itself, and service names are validated.
 - Commands run through `execFile`/`spawn` with argument arrays, never a shell.
 
+If a Pingerer token is configured, the server calls Pingerer's API (`https` only) and nothing else on the internet. The token is read from `~/.config/devdock/config.json` and never included in responses to the browser. Deployed-site links come from your own Kamal configs and config file, and only `http`/`https` links are rendered.
+
 There is **no authentication**. Anything that can reach the port can control your containers.
 
 ### In scope
@@ -38,7 +40,8 @@ There is **no authentication**. Anything that can reach the port can control you
 - Bypassing the `Host`/`Origin` checks or otherwise triggering actions from a web page or remote host
 - Running commands, actions or arguments outside the fixed set, including via crafted project or service names
 - Reading files or data outside what the dashboard is meant to show
-- Cross-site scripting in the dashboard, for example via container names, statuses or log output
+- Cross-site scripting in the dashboard, for example via container names, statuses, log output or site links
+- Leaking the Pingerer token to the browser or to any host other than the configured Pingerer URL
 
 ### Out of scope
 

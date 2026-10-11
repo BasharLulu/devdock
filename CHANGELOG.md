@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Links to deployed sites on each project card, detected from Kamal `config/deploy*.yml` proxy hosts.
+- Optional site status (up, degraded, down) from [Pingerer](https://pingerer.com), using a read-only API token.
+- Optional config file at `~/.config/devdock/config.json` (or `DEVDOCK_CONFIG`) for the Pingerer token and per-project link overrides.
+- Dependabot updates for GitHub Actions.
 - End-to-end smoke test (`test/smoke.mjs`) and a GitHub Actions CI workflow running it on Node 18, 20, 22 and 24.
 - Project docs: changelog, contributing guide, code of conduct, security policy, and issue and pull request templates.
 

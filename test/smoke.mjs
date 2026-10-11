@@ -5,7 +5,7 @@
 import http from "node:http";
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,13 +69,47 @@ services:
     init: true
 `);
 
+// Kamal deploy configs: two real destinations and one placeholder that must be ignored.
+mkdirSync(path.join(dir, "smoke", "config"));
+writeFileSync(path.join(dir, "smoke", "config", "deploy.yml"), "service: smoke\nproxy:\n  ssl: true\n  host: smoke.devdock.test\nregistry:\n  server: localhost:5555\n");
+writeFileSync(path.join(dir, "smoke", "config", "deploy.staging.yml"), 'proxy:\n  hosts:\n    - staging.devdock.test\n    - "*.staging.devdock.test"\n');
+writeFileSync(path.join(dir, "smoke", "config", "deploy.template.yml"), "proxy:\n  host: app.example.com # placeholder\n");
+
+// A fake Pingerer API so the test never talks to the real service.
+const TOKEN = "smoke-test-token";
+const pingererRequests = [];
+const fakePingerer = http.createServer((req, res) => {
+  pingererRequests.push({ url: req.url, auth: req.headers.authorization });
+  res.setHeader("content-type", "application/json");
+  if (req.headers.authorization !== `Bearer ${TOKEN}`) return res.writeHead(401).end(JSON.stringify({ error: "unauthorized", message: "Invalid token" }));
+  res.end(JSON.stringify({
+    data: [
+      { host: "smoke.devdock.test", status: "up", paused: false, last_status_change_at: new Date(Date.now() - 3_600_000).toISOString() },
+      { host: "www.staging.devdock.test", status: "down", paused: false, last_status_change_at: new Date().toISOString() },
+    ],
+    meta: { page: 1, next_page: null },
+  }));
+});
+await new Promise((r) => fakePingerer.listen(0, "127.0.0.1", r));
+
+const configFile = path.join(dir, "config.json");
+writeFileSync(configFile, JSON.stringify({
+  pingerer: { token: TOKEN, url: `http://127.0.0.1:${fakePingerer.address().port}` },
+  projects: { [PROJECT]: { links: [
+    { label: "docs", url: "https://docs.devdock.test" },
+    { label: "bad", url: "javascript:alert(1)" },
+  ] } },
+}));
+chmodSync(configFile, 0o600);
+
 const server = spawn(process.execPath, [path.join(ROOT, "server.mjs")], {
-  env: { ...process.env, PORT: String(PORT), DEVDOCK_DIRS: dir },
+  env: { ...process.env, PORT: String(PORT), DEVDOCK_DIRS: dir, DEVDOCK_CONFIG: configFile },
   stdio: ["ignore", "inherit", "inherit"],
 });
 
 async function cleanup() {
   server.kill();
+  fakePingerer.close();
   try { execFileSync("docker", ["compose", "-f", composeFile, "-p", PROJECT, "down", "--remove-orphans"], { stdio: "ignore" }); } catch {}
   rmSync(dir, { recursive: true, force: true });
 }
@@ -109,6 +143,27 @@ try {
     const p = r.json.projects.find((x) => x.name === PROJECT);
     assert.ok(p, `${PROJECT} not found`);
     assert.equal(p.config, composeFile);
+  });
+
+  await check("detects deployed sites from Kamal configs and config.json", async () => {
+    const p = await project();
+    assert.deepEqual(p.links.map((l) => [l.label, l.url]), [
+      ["production", "https://smoke.devdock.test"],
+      ["staging", "https://staging.devdock.test"],
+      ["docs", "https://docs.devdock.test"],
+    ]);
+  });
+
+  await check("shows Pingerer status without leaking the token", async () => {
+    const r = await waitFor(async () => {
+      const r = await request("GET", "/api/projects");
+      return r.json.pingerer?.checkedAt && r;
+    }, "Pingerer status", 15_000);
+    assert.equal(r.json.pingerer.error, null);
+    const links = r.json.projects.find((x) => x.name === PROJECT).links;
+    assert.deepEqual(links.map((l) => l.status), ["up", "down", undefined]);
+    assert.ok(!r.text.includes(TOKEN), "token must not appear in API responses");
+    assert.ok(pingererRequests.every((q) => q.url.startsWith("/api/v1/sites")), "only the sites endpoint is called");
   });
 
   await check("rejects unknown projects, actions and bad service names", async () => {
