@@ -4,6 +4,11 @@ A tiny local dashboard for starting and stopping Docker Compose dev projects.
 
 Devdock scans `~/Sites` for compose projects and gives you one page to see what's running, start/stop/restart/rebuild whole projects or single services, open their published ports, and tail logs.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img alt="Devdock dashboard showing compose projects with their service status, ports and start/stop controls" src="docs/screenshot-light.png">
+</picture>
+
 No dependencies, no build step: a Node server (`server.mjs`) that shells out to `docker compose`, and a single static page (`index.html`).
 
 ## Requirements
