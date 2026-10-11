@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # Devdock has no npm dependencies, so only the GitHub Actions used by CI need watching.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
