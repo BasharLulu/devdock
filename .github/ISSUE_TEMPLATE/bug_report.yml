@@ -1,0 +1,74 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please remove anything private (paths, project names, env values) before submitting.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        1. Clicked Start on a stopped project
+        2. Expected the containers to come up
+        3. Instead the card showed "Last action failed"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Project discovery (missing or wrong projects)
+        - Status (wrong running/partial/stopped state)
+        - Actions (start, stop, restart, rebuild, down)
+        - Logs or action output
+        - UI / layout / theme
+        - Server / auto-start
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: macOS 26.1
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node -v`
+      placeholder: v24.15.0
+    validations:
+      required: true
+  - type: input
+    id: docker
+    attributes:
+      label: Docker version
+      description: Output of `docker version --format '{{.Server.Version}}'` and `docker compose version`
+      placeholder: 28.5.1, Docker Compose v2.40.0
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Only needed for UI issues
+      placeholder: Chrome 141
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and output
+      description: |
+        Server output (or `~/Library/Logs/devdock.log` with the macOS login agent), the "Last action output" panel, and `docker compose ls -a` if a project is missing or has the wrong status.
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Optional, but helpful for UI issues.
