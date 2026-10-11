@@ -4,252 +4,597 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Devdock</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b5bd6'/%3E%3Cpath d='M8 19h16v3a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2zM10 14h4v4h-4zM15 14h4v4h-4zM15 9h4v4h-4z' fill='white'/%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #f6f6f4; --panel: #ffffff; --text: #1b1b1a; --muted: #6b6b66; --line: #e4e3df;
-    --accent: #2f6fde; --run: #1f9d55; --run-bg: #e5f5ec; --stop: #8a8a84; --stop-bg: #efefec;
-    --warn: #c27c0e; --warn-bg: #fbf0dc; --err: #c8372d; --err-bg: #fbe6e4; --code: #f1f0ec;
+    --bg: #f7f7f8; --surface: #ffffff; --surface-2: #f2f2f4; --text: #18181b; --muted: #71717a; --faint: #a1a1aa;
+    --line: #e7e7ea; --line-strong: #d4d4d8;
+    --accent: #5b5bd6; --accent-text: #ffffff; --accent-soft: #ededfc;
+    --green: #16a34a; --green-soft: #e8f6ed; --amber: #d97706; --amber-soft: #fdf3e2;
+    --red: #dc2626; --red-soft: #fdecec; --grey: #a1a1aa;
+    --code-bg: #0f0f12; --code-text: #d4d4d8;
+    --shadow: 0 1px 2px rgba(16,16,20,.04), 0 1px 1px rgba(16,16,20,.03);
+    --shadow-lg: 0 12px 32px -8px rgba(16,16,20,.18), 0 2px 6px rgba(16,16,20,.06);
+    --radius: 12px;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #141413; --panel: #1d1d1b; --text: #ecebe6; --muted: #9a9993; --line: #2e2e2b;
-      --accent: #6f9cf0; --run: #4cc584; --run-bg: #193325; --stop: #8f8f89; --stop-bg: #262624;
-      --warn: #e2a64a; --warn-bg: #352a17; --err: #ef6d62; --err-bg: #3a1e1b; --code: #111110;
+      --bg: #0e0e11; --surface: #17171b; --surface-2: #1f1f24; --text: #ececf0; --muted: #9a9aa5; --faint: #63636e;
+      --line: #26262c; --line-strong: #34343c;
+      --accent: #8b8bf5; --accent-text: #0e0e11; --accent-soft: #23234a;
+      --green: #4ade80; --green-soft: #12291b; --amber: #fbbf24; --amber-soft: #2e2410;
+      --red: #f87171; --red-soft: #321717; --grey: #5c5c66;
+      --code-bg: #0a0a0c; --code-text: #d4d4d8;
+      --shadow: 0 1px 0 rgba(255,255,255,.02) inset;
+      --shadow-lg: 0 16px 40px -8px rgba(0,0,0,.6);
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-font-smoothing: antialiased; }
   body { margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 28px 16px 80px; }
-  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
-  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
-  .summary { color: var(--muted); }
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif; }
+  a { color: inherit; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 96px; }
+
+  /* Header */
+  .top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px);
+    border-bottom: 1px solid var(--line); margin: 0 -16px 24px; padding: 14px 16px; }
+  .top-inner { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 16px; letter-spacing: -.01em; }
+  .logo { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
+  .logo svg { width: 18px; height: 18px; fill: var(--accent-text); }
   .grow { flex: 1; }
-  input[type=search] { background: var(--panel); color: var(--text); border: 1px solid var(--line);
-    border-radius: 8px; padding: 7px 10px; font: inherit; width: 220px; max-width: 100%; }
-  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text);
-    border-radius: 7px; padding: 5px 11px; cursor: pointer; white-space: nowrap; }
-  button:hover:not(:disabled) { border-color: var(--muted); }
-  button:disabled { opacity: .45; cursor: default; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.danger:hover:not(:disabled) { border-color: var(--err); color: var(--err); }
-  button.ghost { border-color: transparent; background: transparent; color: var(--muted); padding: 5px 7px; }
-  button.ghost:hover:not(:disabled) { color: var(--text); border-color: transparent; }
-  .banner { background: var(--err-bg); color: var(--err); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
-  .list { display: grid; gap: 10px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; flex-wrap: wrap; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--stop); flex: none; }
-  .dot.on { background: var(--run); box-shadow: 0 0 0 3px var(--run-bg); }
-  .dot.partial { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-bg); }
-  .dot.busy { background: var(--accent); animation: pulse 1s infinite; }
-  @keyframes pulse { 50% { opacity: .3; } }
-  .name { font-weight: 600; }
-  .path { color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .meta { min-width: 0; flex: 1 1 220px; }
-  .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--stop-bg); color: var(--muted); }
-  .pill.on { background: var(--run-bg); color: var(--run); }
-  .pill.err { background: var(--err-bg); color: var(--err); }
-  .pill.busy { background: var(--warn-bg); color: var(--warn); }
-  .ports a { color: var(--accent); text-decoration: none; font-size: 13px; margin-right: 8px; }
-  .ports a:hover { text-decoration: underline; }
-  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-  .services { border-top: 1px solid var(--line); padding: 4px 14px 10px; }
-  .svc { display: grid; grid-template-columns: 14px minmax(90px, 160px) 1fr auto; gap: 10px; align-items: center;
-    padding: 6px 0; border-bottom: 1px dashed var(--line); }
-  .svc:last-child { border-bottom: 0; }
-  .svc .status { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .svc .oneoff { font-size: 11px; color: var(--muted); }
-  .empty { color: var(--muted); padding: 8px 0; font-size: 13px; }
-  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--panel); color: var(--text);
-    width: min(960px, calc(100vw - 32px)); max-height: calc(100vh - 64px); }
-  dialog::backdrop { background: rgba(0,0,0,.45); }
-  .dlg-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
-  pre { margin: 0; padding: 12px 14px; background: var(--code); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-    white-space: pre-wrap; word-break: break-all; max-height: calc(100vh - 160px); overflow: auto; }
-  @media (max-width: 560px) {
-    .svc { grid-template-columns: 14px 1fr; }
-    .svc .status { grid-column: 2; }
-    .svc .actions { grid-column: 2; }
+  .search { position: relative; }
+  .search input { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 9px;
+    padding: 7px 34px 7px 32px; font: inherit; width: 240px; max-width: 100%; outline: none; transition: border-color .15s, box-shadow .15s; }
+  .search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .search svg { position: absolute; left: 10px; top: 50%; translate: 0 -50%; width: 15px; height: 15px; stroke: var(--faint); }
+  .search kbd { position: absolute; right: 8px; top: 50%; translate: 0 -50%; }
+  kbd { font: 11px var(--mono); color: var(--muted); border: 1px solid var(--line-strong); border-bottom-width: 2px;
+    border-radius: 5px; padding: 0 5px; background: var(--surface-2); }
+  .updated { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  /* Summary + filters */
+  .bar { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  .stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .stat .n { font-size: 26px; font-weight: 650; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat .l { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .chips { display: flex; gap: 4px; background: var(--surface-2); padding: 3px; border-radius: 10px; border: 1px solid var(--line); }
+  .chip { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; padding: 4px 12px;
+    border-radius: 7px; cursor: pointer; }
+  .chip:hover { color: var(--text); }
+  .chip[aria-pressed=true] { background: var(--surface); color: var(--text); box-shadow: var(--shadow), 0 0 0 1px var(--line); }
+  .chip .c { color: var(--faint); margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 500;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--text);
+    border-radius: 8px; padding: 5px 12px; cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s; }
+  .btn:hover:not(:disabled) { background: var(--surface-2); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn svg { width: 14px; height: 14px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--text)); }
+  .btn.icon { padding: 5px 7px; border-color: transparent; background: transparent; color: var(--muted); }
+  .btn.icon:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+  .btn.sm { padding: 3px 9px; font-size: 12px; }
+  .spin { width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+    animation: spin .7s linear infinite; display: inline-block; }
+  @keyframes spin { to { rotate: 360deg; } }
+
+  .banner { display: flex; gap: 10px; align-items: center; background: var(--red-soft); color: var(--red);
+    padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; font-weight: 500; }
+
+  /* Cards */
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); align-items: start; }
+  .card { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); transition: border-color .15s, box-shadow .15s; }
+  .card:hover { border-color: var(--line-strong); }
+  .card.expanded { grid-column: 1 / -1; }
+  .card-main { padding: 16px 16px 14px; }
+  .head { display: flex; align-items: flex-start; gap: 12px; }
+  .title { min-width: 0; flex: 1; }
+  .name { font-weight: 620; font-size: 15px; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+  .name { flex-wrap: wrap; row-gap: 4px; }
+  .name .tag { white-space: nowrap; font-size: 11.5px; font-weight: 500; padding: 1px 8px; border-radius: 999px; }
+  .tag.on { background: var(--green-soft); color: var(--green); }
+  .tag.partial { background: var(--amber-soft); color: var(--amber); }
+  .tag.off { background: var(--surface-2); color: var(--muted); }
+  .tag.busy { background: var(--accent-soft); color: var(--accent); }
+  .tag.err { background: var(--red-soft); color: var(--red); }
+  .path { color: var(--faint); font: 12px var(--mono); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .actions { display: flex; gap: 6px; align-items: center; flex: none; }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--grey); flex: none; display: inline-block; }
+  .dot.on { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+  .dot.partial, .dot.warn { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+  .dot.err { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+  .dot.done { background: transparent; border: 1.5px solid var(--grey); }
+  .dot.busy { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  .svcs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .svc-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted);
+    background: var(--surface-2); border-radius: 6px; padding: 2px 8px 2px 7px; }
+  .svc-chip .dot { width: 6px; height: 6px; box-shadow: none; }
+  .svc-chip.on { color: var(--text); }
+
+  .foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--muted); min-height: 30px; }
+  .port { display: inline-flex; align-items: center; gap: 4px; font: 12px var(--mono); color: var(--accent);
+    background: var(--accent-soft); padding: 2px 8px; border-radius: 6px; text-decoration: none; font-weight: 500; }
+  .port:hover { filter: brightness(1.08); text-decoration: underline; }
+  .port svg { width: 11px; height: 11px; }
+  .expand { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 2px 4px;
+    color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; border-radius: 6px; }
+  .expand:hover { color: var(--text); }
+  .expand svg { width: 14px; height: 14px; transition: rotate .15s; }
+  .expanded .expand svg { rotate: 180deg; }
+
+  /* Menu */
+  .menu-wrap { position: relative; }
+  .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 220px; width: max-content; white-space: nowrap; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 5px; }
+  .menu button { display: flex; width: 100%; align-items: center; gap: 10px; border: 0; background: none; color: var(--text);
+    font: inherit; font-size: 13px; padding: 7px 10px; border-radius: 6px; cursor: pointer; text-align: left; }
+  .menu button:hover:not(:disabled) { background: var(--surface-2); }
+  .menu button:disabled { opacity: .45; cursor: default; }
+  .menu button svg { width: 15px; height: 15px; color: var(--muted); }
+  .menu button.danger { color: var(--red); }
+  .menu button.danger svg { color: var(--red); }
+  .menu .sub { margin-left: auto; color: var(--faint); font: 11px var(--mono); }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+
+  /* Service table */
+  .svc-table { border-top: 1px solid var(--line); }
+  .svc-row { display: grid; grid-template-columns: 16px minmax(100px, 180px) minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
+    padding: 9px 16px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .svc-row:last-child { border-bottom: 0; }
+  .svc-row:hover { background: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+  .svc-row .sname { font-weight: 550; }
+  .svc-row .sname small { font-weight: 400; color: var(--faint); margin-left: 6px; font-size: 11px; }
+  .svc-row .sstatus { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .svc-row .simage { color: var(--faint); font: 11.5px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+  .svc-row .sact { display: flex; gap: 4px; justify-content: flex-end; }
+  .empty-svc { padding: 14px 16px; color: var(--muted); font-size: 13px; }
+
+  .empty { text-align: center; padding: 64px 16px; color: var(--muted); }
+  .empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+
+  /* Drawer */
+  dialog.drawer { margin: 0 0 0 auto; height: 100vh; max-height: 100vh; width: min(760px, 100vw); border: 0; padding: 0;
+    background: var(--surface); color: var(--text); border-left: 1px solid var(--line); box-shadow: var(--shadow-lg);
+    display: none; flex-direction: column; }
+  dialog.drawer[open] { display: flex; animation: slide .18s ease-out; }
+  @keyframes slide { from { translate: 24px 0; opacity: 0; } }
+  dialog.drawer::backdrop { background: rgba(10,10,14,.35); backdrop-filter: blur(2px); }
+  .d-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .d-title { font-weight: 620; }
+  .d-sub { color: var(--muted); font-size: 12.5px; }
+  .d-tools { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .d-tools select { font: inherit; font-size: 13px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 7px; padding: 4px 8px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--accent); }
+  .log { flex: 1; margin: 0; padding: 14px 16px; background: var(--code-bg); color: var(--code-text); overflow: auto;
+    font: 12px/1.6 var(--mono); white-space: pre-wrap; word-break: break-word; }
+  .log .ts { color: #6b6b78; }
+  .log .svc { color: #8b8bf5; }
+  .log .err { color: #f87171; }
+  .log .cmd { color: #4ade80; }
+
+  /* Toasts */
+  .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: grid; gap: 8px; width: min(360px, calc(100vw - 32px)); }
+  .toast { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow-lg); padding: 10px 12px; font-size: 13px; animation: pop .2s ease-out; }
+  @keyframes pop { from { translate: 0 8px; opacity: 0; } }
+  .toast .msg { flex: 1; min-width: 0; }
+  .toast .msg b { font-weight: 600; }
+  .toast .x { background: none; border: 0; color: var(--faint); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 4px; }
+
+  @media (max-width: 640px) {
+    .search input { width: 100%; }
+    .head { flex-wrap: wrap; }
+    .title { flex-basis: 100%; }
+    .search { flex: 1 1 100%; order: 5; }
+    .stats { gap: 20px; }
+    .stat .n { font-size: 22px; }
+    .svc-row { grid-template-columns: 16px 1fr auto; }
+    .svc-row .sstatus { grid-column: 2 / -1; grid-row: 2; }
+    .svc-row .simage { display: none; }
   }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>Devdock</h1>
-    <span class="summary" id="summary"></span>
-    <span class="grow"></span>
-    <input type="search" id="q" placeholder="Filter projects…">
-    <button id="refresh" class="ghost" title="Refresh">↻</button>
-  </header>
+  <div class="top">
+    <div class="top-inner">
+      <div class="brand">
+        <span class="logo"><svg viewBox="0 0 24 24"><path d="M3 14h18v3.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5zM5 9h4.5v4H5zM10.25 9h4.5v4h-4.5zM10.25 4h4.5v4h-4.5z"/></svg></span>
+        Devdock
+      </div>
+      <span class="grow"></span>
+      <span class="updated" id="updated"></span>
+      <label class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="Search projects" aria-label="Search projects" autocomplete="off">
+        <kbd>/</kbd>
+      </label>
+      <button class="btn icon" id="refresh" title="Refresh (r)" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/></svg>
+      </button>
+    </div>
+  </div>
+
   <div id="banner" class="banner" hidden></div>
-  <div id="list" class="list"></div>
+
+  <div class="bar">
+    <div class="stats" id="stats"></div>
+    <span class="grow"></span>
+    <div class="chips" role="group" aria-label="Filter" id="chips"></div>
+  </div>
+
+  <div id="grid" class="grid"></div>
 </div>
 
-<dialog id="dlg">
-  <div class="dlg-head">
-    <strong id="dlg-title"></strong>
-    <span id="dlg-state" class="pill"></span>
+<dialog class="drawer" id="drawer">
+  <div class="d-head">
+    <div>
+      <div class="d-title" id="d-title"></div>
+      <div class="d-sub" id="d-sub"></div>
+    </div>
     <span class="grow"></span>
-    <button id="dlg-reload" class="ghost">Reload</button>
-    <button id="dlg-close">Close</button>
+    <span id="d-state"></span>
+    <button class="btn icon" id="d-close" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
   </div>
-  <pre id="dlg-body"></pre>
+  <div class="d-tools" id="d-tools"></div>
+  <pre class="log" id="d-log"></pre>
 </dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script>
 const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-let data = { projects: [] };
-const open = new Set(JSON.parse(safeGet("devdock.open") || "[]"));
-let dialogMode = null; // { kind: 'job'|'logs', project, service }
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
 
-function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-function safeSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+const I = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 7 5.5z"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>',
+  build: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8-1.3-1.3a4 4 0 0 0-5-5L13 2z"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+  logs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  term: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 4 4-4 4M12 16h7"/></svg>',
+  more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+};
+
+const state = {
+  data: { projects: [], docker: true },
+  filter: store.get("devdock.filter", "all"),
+  expanded: new Set(store.get("devdock.open", [])),
+  menu: null,
+  lastJson: "",
+  lastFetch: 0,
+  prevJobs: new Map(),
+  pending: new Set(), // projects with an action just sent, before the server reports it running
+  drawer: null,       // { kind: 'job'|'logs', project, service }
+};
+
+/* ---------- data ---------- */
 
 async function load() {
   try {
     const r = await fetch("/api/projects");
-    data = await r.json();
+    const data = await r.json();
+    detectFinishedJobs(data.projects);
+    state.data = data;
+    state.lastFetch = Date.now();
     $("#banner").hidden = data.docker;
-    if (!data.docker) $("#banner").textContent = "Can't reach Docker: " + (data.error || "is Docker Desktop running?");
-  } catch (e) {
+    if (!data.docker) $("#banner").innerHTML = `Can't reach Docker — is Docker Desktop running? <span style="opacity:.7;font-weight:400">${esc(data.error || "")}</span>`;
+  } catch {
     $("#banner").hidden = false;
-    $("#banner").textContent = "Devdock server is not responding.";
+    $("#banner").textContent = "Devdock server isn't responding.";
   }
-  render();
+  const json = JSON.stringify([state.data, state.filter, [...state.expanded], state.menu, [...state.pending]]);
+  if (json !== state.lastJson) { state.lastJson = json; render(); }
+  tickUpdated();
+}
+
+function detectFinishedJobs(projects) {
+  for (const p of projects) {
+    const was = state.prevJobs.get(p.name);
+    if (p.job?.running) state.pending.delete(p.name);
+    if (was?.running && p.job && !p.job.running) {
+      toast(p.job.ok ? "ok" : "err", `<b>${esc(p.name)}</b> · ${esc(p.job.action)} ${p.job.ok ? "finished" : "failed"}`, p.name);
+    }
+    state.prevJobs.set(p.name, p.job);
+  }
+}
+
+function tickUpdated() {
+  if (!state.lastFetch) return;
+  const s = Math.round((Date.now() - state.lastFetch) / 1000);
+  $("#updated").textContent = s < 3 ? "Live" : `Updated ${s}s ago`;
+}
+
+/* ---------- derived state ---------- */
+
+function svcState(c) {
+  if (c.state === "running") {
+    if (/unhealthy/.test(c.status)) return "err";
+    if (/starting/.test(c.status)) return "warn";
+    return "on";
+  }
+  const code = Number(c.status.match(/Exited \((\d+)\)/)?.[1]);
+  if (code === 0) return "done";
+  if (c.state === "restarting" || c.state === "dead") return "err";
+  return "off";
+}
+
+// A service started with `docker compose run` (one-off) counts as covering that service.
+function effectiveState(p, c) {
+  const s = svcState(c);
+  if (s === "off" && p.containers.some((o) => o.oneoff && o.service === c.service && o.state === "running")) return "on";
+  return s;
 }
 
 function projectState(p) {
-  if (p.job?.running) return "busy";
+  if (p.job?.running || state.pending.has(p.name)) return "busy";
   const svcs = p.containers.filter((c) => !c.oneoff);
   if (!p.running) return "off";
-  // A project counts as fully up when every long-running service (not one-shot setup tasks) is running.
-  const longRunning = svcs.filter((c) => !(c.state === "exited" && c.status.startsWith("Exited (0)")));
-  return longRunning.every((c) => c.state === "running") ? "on" : "partial";
+  return svcs.every((c) => ["on", "done"].includes(effectiveState(p, c))) ? "on" : "partial";
 }
+
+const LABEL = { on: "Running", partial: "Partly running", off: "Stopped", busy: "Working" };
+
+/* ---------- render ---------- */
 
 function render() {
-  const q = $("#q").value.trim().toLowerCase();
-  const list = data.projects.filter((p) => !q || p.name.toLowerCase().includes(q) || p.dir.toLowerCase().includes(q));
-  const up = data.projects.filter((p) => p.running).length;
-  $("#summary").textContent = `${up} of ${data.projects.length} projects running`;
+  const { projects } = state.data;
+  const withState = projects.map((p) => ({ ...p, st: projectState(p) }));
+  const counts = { all: withState.length, on: 0, partial: 0, off: 0 };
+  for (const p of withState) if (counts[p.st] !== undefined) counts[p.st]++;
+  const containersUp = projects.reduce((n, p) => n + p.running, 0);
+  const ports = projects.reduce((n, p) => n + p.ports.length, 0);
 
-  $("#list").innerHTML = list.map((p) => {
-    const st = projectState(p);
-    const busy = !!p.job?.running;
-    const dot = { on: "on", partial: "partial", busy: "busy", off: "" }[st];
-    const pill = busy ? `<span class="pill busy">${esc(p.job.action)}…</span>`
-      : p.job && p.job.ok === false ? `<button class="pill err" data-job="${esc(p.name)}" style="border:0">last action failed</button>`
-      : p.running ? `<span class="pill on">${p.running} running</span>` : `<span class="pill">stopped</span>`;
-    const ports = p.ports.map((port) => `<a href="http://localhost:${port}" target="_blank" rel="noopener">:${port} ↗</a>`).join("");
-    const expanded = open.has(p.name);
-    return `
-    <div class="card">
-      <div class="row">
-        <span class="dot ${dot}"></span>
-        <div class="meta">
-          <div><span class="name">${esc(p.name)}</span> &nbsp;${pill}</div>
-          <div class="path" title="${esc(p.config)}">${esc(p.dir.replace(/^\/Users\/[^/]+/, "~"))}</div>
-        </div>
-        <span class="ports">${ports}</span>
-        <div class="actions">
-          ${st === "partial" ? `<button class="primary" data-act="up" data-p="${esc(p.name)}" title="Start the stopped services">Start</button>` : ""}
-          ${p.running
-            ? `<button data-act="restart" data-p="${esc(p.name)}" ${busy ? "disabled" : ""}>Restart</button>
-               <button class="danger" data-act="stop" data-p="${esc(p.name)}" ${busy ? "disabled" : ""}>Stop</button>`
-            : `<button class="primary" data-act="up" data-p="${esc(p.name)}" ${busy ? "disabled" : ""}>Start</button>`}
-          <button class="ghost" data-act="rebuild" data-p="${esc(p.name)}" ${busy ? "disabled" : ""} title="docker compose up -d --build">Rebuild</button>
-          <button class="ghost" data-act="down" data-p="${esc(p.name)}" ${busy ? "disabled" : ""} title="Remove containers (volumes are kept)">Down</button>
-          ${p.job ? `<button class="ghost" data-job="${esc(p.name)}" title="Output of last action">Output</button>` : ""}
-          <button class="ghost" data-logs="${esc(p.name)}">Logs</button>
-          <button class="ghost" data-toggle="${esc(p.name)}" aria-expanded="${expanded}">${expanded ? "▾" : "▸"} ${p.containers.length}</button>
-        </div>
-      </div>
-      ${expanded ? `<div class="services">${p.containers.length ? p.containers.map((c) => `
-        <div class="svc">
-          <span class="dot ${c.state === "running" ? "on" : ""}"></span>
-          <div><span>${esc(c.service)}</span>${c.oneoff ? ` <span class="oneoff">one-off</span>` : ""}</div>
-          <div class="status" title="${esc(c.name)} · ${esc(c.image)}">${esc(c.status)}${c.ports.length ? " · " + c.ports.map((x) => `<a href="http://localhost:${x}" target="_blank" rel="noopener" style="color:var(--accent)">:${x}</a>`).join(" ") : ""}</div>
-          <div class="actions">
-            ${c.oneoff ? "" : c.state === "running"
-              ? `<button data-act="restart" data-p="${esc(p.name)}" data-s="${esc(c.service)}" ${busy ? "disabled" : ""}>Restart</button>
-                 <button class="danger" data-act="stop" data-p="${esc(p.name)}" data-s="${esc(c.service)}" ${busy ? "disabled" : ""}>Stop</button>`
-              : `<button data-act="up" data-p="${esc(p.name)}" data-s="${esc(c.service)}" ${busy ? "disabled" : ""}>Start</button>`}
-            ${c.oneoff ? "" : `<button class="ghost" data-logs="${esc(p.name)}" data-s="${esc(c.service)}">Logs</button>`}
-          </div>
-        </div>`).join("") : `<div class="empty">No containers yet. Start creates them from ${esc(p.config.split("/").pop())}.</div>`}
-      </div>` : ""}
+  $("#stats").innerHTML = `
+    <div class="stat"><div class="n">${counts.on + counts.partial}<span style="color:var(--faint);font-weight:500">/${counts.all}</span></div><div class="l">projects up</div></div>
+    <div class="stat"><div class="n">${containersUp}</div><div class="l">containers running</div></div>
+    <div class="stat"><div class="n">${ports}</div><div class="l">open ports</div></div>`;
+
+  const filters = [["all", "All"], ["on", "Running"], ["partial", "Partial"], ["off", "Stopped"]];
+  $("#chips").innerHTML = filters.map(([k, l]) =>
+    `<button class="chip" data-filter="${k}" aria-pressed="${state.filter === k}">${l}<span class="c">${counts[k]}</span></button>`).join("");
+
+  const q = $("#q").value.trim().toLowerCase();
+  const list = withState.filter((p) =>
+    (state.filter === "all" || p.st === state.filter || (state.filter === "on" && p.st === "busy" && p.running)) &&
+    (!q || p.name.toLowerCase().includes(q) || p.dir.toLowerCase().includes(q)));
+
+  $("#grid").innerHTML = list.length ? list.map(card).join("") : `
+    <div class="empty" style="grid-column:1/-1">
+      <strong>${projects.length ? "Nothing matches" : "No compose projects found"}</strong>
+      ${projects.length ? "Try a different search or filter." : "Add a docker-compose.dev.yml to a folder in ~/Sites."}
     </div>`;
-  }).join("") || `<div class="empty">No compose projects found.</div>`;
 }
 
+function card(p) {
+  const busy = p.st === "busy";
+  const expanded = state.expanded.has(p.name);
+  const n = esc(p.name);
+  const failed = p.job && !p.job.running && p.job.ok === false;
+  const tag = busy
+    ? `<span class="tag busy">${esc(p.job?.action || "starting")}…</span>`
+    : failed ? `<span class="tag err">Last action failed</span>`
+    : `<span class="tag ${p.st}">${LABEL[p.st]}</span>`;
+
+  let primary;
+  if (busy) primary = `<button class="btn" disabled><span class="spin"></span>Working</button>`;
+  else if (p.st === "off") primary = `<button class="btn primary" data-act="up" data-p="${n}">${I.play}Start</button>`;
+  else if (p.st === "partial") primary = `<button class="btn primary" data-act="up" data-p="${n}" title="Start the stopped services">${I.play}Start rest</button>`;
+  else primary = `<button class="btn" data-act="stop" data-p="${n}">${I.stop}Stop</button>`;
+
+  const svcs = p.containers.filter((c) => !c.oneoff);
+  const oneoffs = p.containers.length - svcs.length;
+  const chips = svcs.length
+    ? svcs.map((c) => { const s = effectiveState(p, c); return `<span class="svc-chip ${s === "on" ? "on" : ""}" title="${esc(c.status)}"><span class="dot ${s}"></span>${esc(c.service)}</span>`; }).join("")
+    : `<span class="svc-chip">No containers yet</span>`;
+
+  const uptime = svcs.find((c) => c.service === "web" && c.state === "running")?.status
+    || svcs.find((c) => c.state === "running")?.status || "";
+
+  return `
+  <article class="card ${expanded ? "expanded" : ""}">
+    <div class="card-main">
+      <div class="head">
+        <div class="title">
+          <div class="name"><span class="dot ${p.st}"></span>${n}${tag}</div>
+          <div class="path" title="${esc(p.config)}">${esc(p.dir.replace(/^\/Users\/[^/]+/, "~"))}</div>
+        </div>
+        <div class="actions">
+          ${primary}
+          <div class="menu-wrap">
+            <button class="btn icon" data-menu="${n}" aria-label="More actions" aria-expanded="${state.menu === p.name}">${I.more}</button>
+            ${state.menu === p.name ? menu(p, busy) : ""}
+          </div>
+        </div>
+      </div>
+      <div class="svcs">${chips}</div>
+      <div class="foot">
+        ${p.ports.map((port) => `<a class="port" href="http://localhost:${port}" target="_blank" rel="noopener">localhost:${port}${I.ext}</a>`).join("")}
+        <span>${esc(uptime.replace(/^Up /, "Up "))}</span>
+        <button class="expand" data-toggle="${n}" aria-expanded="${expanded}">${svcs.length} service${svcs.length === 1 ? "" : "s"}${oneoffs ? ` + ${oneoffs} run` : ""}${I.chev}</button>
+      </div>
+    </div>
+    ${expanded ? serviceTable(p, busy) : ""}
+  </article>`;
+}
+
+function menu(p, busy) {
+  const n = esc(p.name), d = busy ? "disabled" : "";
+  return `<div class="menu" role="menu">
+    ${p.running ? `<button data-act="restart" data-p="${n}" ${d}>${I.restart}Restart all</button>` : ""}
+    ${p.running && p.st !== "on" ? `<button data-act="stop" data-p="${n}" ${d}>${I.stop}Stop all</button>` : ""}
+    <button data-act="rebuild" data-p="${n}" ${d}>${I.build}Rebuild &amp; start<span class="sub">--build</span></button>
+    <hr>
+    <button data-logs="${n}">${I.logs}View logs</button>
+    ${p.job ? `<button data-job="${n}">${I.term}Last action output</button>` : ""}
+    <hr>
+    <button class="danger" data-act="down" data-p="${n}" ${d}>${I.down}Remove containers<span class="sub">down</span></button>
+  </div>`;
+}
+
+function serviceTable(p, busy) {
+  if (!p.containers.length) return `<div class="svc-table"><div class="empty-svc">No containers yet — Start creates them from <code>${esc(p.config.split("/").pop())}</code>.</div></div>`;
+  const n = esc(p.name), d = busy ? "disabled" : "";
+  return `<div class="svc-table">${p.containers.map((c) => {
+    const s = svcState(c), sv = esc(c.service);
+    const acts = c.oneoff ? "" : c.state === "running"
+      ? `<button class="btn icon" title="Restart ${sv}" data-act="restart" data-p="${n}" data-s="${sv}" ${d}>${I.restart}</button>
+         <button class="btn icon" title="Stop ${sv}" data-act="stop" data-p="${n}" data-s="${sv}" ${d}>${I.stop}</button>`
+      : `<button class="btn icon" title="Start ${sv}" data-act="up" data-p="${n}" data-s="${sv}" ${d}>${I.play}</button>`;
+    return `<div class="svc-row">
+      <span class="dot ${s}"></span>
+      <span class="sname">${sv}${c.oneoff ? "<small>one-off run</small>" : ""}</span>
+      <span class="sstatus">${esc(c.status)}${c.ports.map((x) => ` · <a class="port" href="http://localhost:${x}" target="_blank" rel="noopener">:${x}</a>`).join("")}</span>
+      <span class="simage" title="${esc(c.image)}">${esc(c.image)}</span>
+      <span class="sact">${acts}${c.oneoff ? "" : `<button class="btn icon" title="Logs for ${sv}" data-logs="${n}" data-s="${sv}">${I.logs}</button>`}</span>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+/* ---------- actions ---------- */
+
 async function act(project, action, service) {
-  if (action === "down" && !confirm(`Remove all containers for ${project}? Volumes (databases) are kept.`)) return;
-  const r = await fetch(`/api/projects/${encodeURIComponent(project)}/action`, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, service }),
-  });
-  if (!r.ok) alert((await r.json()).error);
+  const what = service ? `${service} in ${project}` : project;
+  if (action === "down" && !confirm(`Remove all containers for ${project}?\n\nVolumes (databases) are kept.`)) return;
+  state.menu = null;
+  state.pending.add(project);
+  render();
+  try {
+    const r = await fetch(`/api/projects/${encodeURIComponent(project)}/action`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, service }),
+    });
+    if (!r.ok) { state.pending.delete(project); toast("err", `Couldn't ${action} ${esc(what)}: ${esc((await r.json()).error)}`); }
+  } catch { state.pending.delete(project); toast("err", "Devdock server isn't responding."); }
   load();
 }
 
-async function showDialog(mode) {
-  dialogMode = mode;
-  const dlg = $("#dlg");
-  $("#dlg-title").textContent = mode.kind === "job"
-    ? `${mode.project} — last action` : `${mode.project}${mode.service ? " / " + mode.service : ""} — logs`;
-  if (!dlg.open) { $("#dlg-body").textContent = "Loading…"; dlg.showModal(); }
-  await refreshDialog(true);
+/* ---------- toasts ---------- */
+
+function toast(kind, html, project) {
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML = `<span class="dot ${kind === "ok" ? "on" : "err"}"></span><span class="msg">${html}</span>
+    ${project ? `<button class="btn sm" data-job="${esc(project)}">Output</button>` : ""}<button class="x" aria-label="Dismiss">×</button>`;
+  el.querySelector(".x").onclick = () => el.remove();
+  $("#toasts").append(el);
+  setTimeout(() => el.remove(), kind === "ok" ? 5000 : 12000);
 }
 
-async function refreshDialog(scroll) {
-  if (!dialogMode || !$("#dlg").open) return;
-  const { kind, project, service } = dialogMode;
-  const body = $("#dlg-body");
-  const atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 20;
-  const url = kind === "job"
-    ? `/api/projects/${encodeURIComponent(project)}/job`
-    : `/api/projects/${encodeURIComponent(project)}/logs${service ? "?service=" + encodeURIComponent(service) : ""}`;
-  const j = await (await fetch(url)).json();
-  body.textContent = j.log || "(no output)";
-  const st = $("#dlg-state");
-  if (kind === "job") {
-    st.hidden = false;
-    st.className = "pill " + (j.running ? "busy" : j.ok ? "on" : "err");
-    st.textContent = j.running ? "running" : j.ok ? "done" : "failed";
-  } else st.hidden = true;
-  if (scroll || atBottom) body.scrollTop = body.scrollHeight;
+/* ---------- drawer ---------- */
+
+function openDrawer(mode) {
+  state.drawer = { follow: true, ...mode };
+  const p = state.data.projects.find((x) => x.name === mode.project);
+  $("#d-title").textContent = mode.project;
+  $("#d-sub").textContent = mode.kind === "job" ? "Output of the last action" : "Container logs · last 300 lines";
+  const svcs = p ? [...new Set(p.containers.filter((c) => !c.oneoff).map((c) => c.service))] : [];
+  $("#d-tools").innerHTML = mode.kind === "logs" ? `
+    <select id="d-svc" aria-label="Service">
+      <option value="">All services</option>
+      ${svcs.map((s) => `<option ${s === mode.service ? "selected" : ""}>${esc(s)}</option>`).join("")}
+    </select>
+    <label class="toggle"><input type="checkbox" id="d-follow" checked> Follow</label>
+    <span class="grow"></span>
+    <button class="btn sm" id="d-copy">${I.copy}Copy</button>` : `
+    <span class="grow"></span><button class="btn sm" id="d-copy">${I.copy}Copy</button>`;
+  $("#d-svc")?.addEventListener("change", (e) => { state.drawer.service = e.target.value; refreshDrawer(true); });
+  $("#d-follow")?.addEventListener("change", (e) => { state.drawer.follow = e.target.checked; });
+  $("#d-copy").onclick = async () => {
+    try { await navigator.clipboard.writeText($("#d-log").textContent); $("#d-copy").innerHTML = `${I.copy}Copied`; } catch {}
+  };
+  $("#d-log").textContent = "Loading…";
+  $("#d-state").innerHTML = "";
+  if (!$("#drawer").open) $("#drawer").showModal();
+  refreshDrawer(true);
 }
+
+function colorize(text) {
+  return esc(text).split("\n").map((line) => {
+    if (line.startsWith("$ ")) return `<span class="cmd">${line}</span>`;
+    line = line.replace(/^([\w.-]+-\d+\s+\|)/, '<span class="svc">$1</span>')
+      .replace(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/, '<span class="ts">$1</span>');
+    return /\b(error|fatal|exception|failed)\b/i.test(line) ? `<span class="err">${line}</span>` : line;
+  }).join("\n");
+}
+
+async function refreshDrawer(force) {
+  const m = state.drawer;
+  if (!m || !$("#drawer").open) return;
+  if (!force && m.kind === "logs" && !m.follow) return;
+  const base = `/api/projects/${encodeURIComponent(m.project)}`;
+  const url = m.kind === "job" ? `${base}/job` : `${base}/logs${m.service ? "?service=" + encodeURIComponent(m.service) : ""}`;
+  try {
+    const j = await (await fetch(url)).json();
+    const log = $("#d-log");
+    const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
+    log.innerHTML = colorize(j.log || "(no output)");
+    if (force || atBottom) log.scrollTop = log.scrollHeight;
+    if (m.kind === "job") {
+      $("#d-state").innerHTML = j.running ? `<span class="tag busy" style="font-size:12px;padding:2px 9px;border-radius:999px"><span class="spin" style="width:10px;height:10px;vertical-align:-1px"></span> running</span>`
+        : `<span class="tag ${j.ok ? "on" : "err"}" style="font-size:12px;padding:2px 9px;border-radius:999px">${j.ok ? "Done" : "Failed"}</span>`;
+    }
+  } catch {}
+}
+
+/* ---------- events ---------- */
 
 document.addEventListener("click", (e) => {
-  const b = e.target.closest("button");
-  if (!b) return;
-  if (b.dataset.act) {
-    act(b.dataset.p, b.dataset.act, b.dataset.s);
-    showDialog({ kind: "job", project: b.dataset.p });
-  } else if (b.dataset.job) showDialog({ kind: "job", project: b.dataset.job });
-  else if (b.dataset.logs) showDialog({ kind: "logs", project: b.dataset.logs, service: b.dataset.s });
-  else if (b.dataset.toggle) {
-    const n = b.dataset.toggle;
-    open.has(n) ? open.delete(n) : open.add(n);
-    safeSet("devdock.open", JSON.stringify([...open]));
-    render();
-  }
+  const b = e.target.closest("button, [data-filter]");
+  if (!b) { if (state.menu && !e.target.closest(".menu")) { state.menu = null; render(); } return; }
+  const d = b.dataset;
+  if (d.act) { act(d.p, d.act, d.s); if (d.act === "rebuild") openDrawer({ kind: "job", project: d.p }); }
+  else if (d.menu) { state.menu = state.menu === d.menu ? null : d.menu; render(); }
+  else if (d.job) { state.menu = null; render(); openDrawer({ kind: "job", project: d.job }); }
+  else if (d.logs) { state.menu = null; render(); openDrawer({ kind: "logs", project: d.logs, service: d.s }); }
+  else if (d.toggle) {
+    state.expanded.has(d.toggle) ? state.expanded.delete(d.toggle) : state.expanded.add(d.toggle);
+    store.set("devdock.open", [...state.expanded]); render();
+  } else if (d.filter) { state.filter = d.filter; store.set("devdock.filter", d.filter); render(); }
+  else if (state.menu && !b.closest(".menu")) { state.menu = null; render(); }
 });
-$("#dlg-close").onclick = () => $("#dlg").close();
-$("#dlg-reload").onclick = () => refreshDialog(true);
-$("#dlg").addEventListener("close", () => { dialogMode = null; });
+
+document.addEventListener("keydown", (e) => {
+  const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName);
+  if (e.key === "/" && !typing) { e.preventDefault(); $("#q").focus(); }
+  else if (e.key === "r" && !typing && !e.metaKey && !e.ctrlKey) load();
+  else if (e.key === "Escape" && state.menu) { state.menu = null; render(); }
+  else if (e.key === "Escape" && document.activeElement === $("#q")) { $("#q").value = ""; $("#q").blur(); render(); }
+});
+
+$("#d-close").onclick = () => $("#drawer").close();
+$("#drawer").addEventListener("click", (e) => { if (e.target === $("#drawer")) $("#drawer").close(); });
+$("#drawer").addEventListener("close", () => { state.drawer = null; });
 $("#refresh").onclick = load;
-$("#q").oninput = render;
+$("#q").addEventListener("input", render);
 
 load();
-setInterval(() => {
-  const anyBusy = data.projects.some((p) => p.job?.running);
-  if (anyBusy || !document.hidden) load();
-  if (dialogMode?.kind === "job") refreshDialog(false);
-}, 2500);
+setInterval(() => { if (!document.hidden || state.data.projects.some((p) => p.job?.running)) load(); }, 2500);
+setInterval(() => { tickUpdated(); if (state.drawer) refreshDrawer(false); }, 2500);
 </script>
 </body>
 </html>
