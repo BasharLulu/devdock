@@ -50,7 +50,7 @@ Status dots: **green** — all long-running services up, **amber** — some up (
 
 ## Auto-start on login (macOS)
 
-Create `~/Library/LaunchAgents/net.basharlulu.devdock.plist`:
+Create `~/Library/LaunchAgents/local.devdock.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -58,18 +58,18 @@ Create `~/Library/LaunchAgents/net.basharlulu.devdock.plist`:
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>net.basharlulu.devdock</string>
+  <string>local.devdock</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/basharlulu/.local/bin/mise</string>
+    <string>/Users/YOUR_USER/.local/bin/mise</string>
     <string>x</string>
     <string>node</string>
     <string>--</string>
     <string>node</string>
-    <string>/Users/basharlulu/Sites/devdock/server.mjs</string>
+    <string>/Users/YOUR_USER/Sites/devdock/server.mjs</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/basharlulu/Sites/devdock</string>
+  <string>/Users/YOUR_USER/Sites/devdock</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
@@ -82,31 +82,31 @@ Create `~/Library/LaunchAgents/net.basharlulu.devdock.plist`:
   <key>ThrottleInterval</key>
   <integer>10</integer>
   <key>StandardOutPath</key>
-  <string>/Users/basharlulu/Library/Logs/devdock.log</string>
+  <string>/Users/YOUR_USER/Library/Logs/devdock.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/basharlulu/Library/Logs/devdock.log</string>
+  <string>/Users/YOUR_USER/Library/Logs/devdock.log</string>
 </dict>
 </plist>
 ```
 
-Node is launched through [mise](https://mise.jdx.dev) so the agent survives Node upgrades; replace the first four arguments with the path to `node` if you don't use mise.
+Replace `YOUR_USER` with your macOS username (`whoami`). Node is launched through [mise](https://mise.jdx.dev) so the agent survives Node upgrades; if you don't use mise, replace the first five arguments with the full path to `node` (`which node`).
 
 Load it:
 
 ```bash
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/net.basharlulu.devdock.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.devdock.plist
 ```
 
 Restart after editing the code:
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/net.basharlulu.devdock
+launchctl kickstart -k gui/$(id -u)/local.devdock
 ```
 
 Remove:
 
 ```bash
-launchctl bootout gui/$(id -u)/net.basharlulu.devdock && rm ~/Library/LaunchAgents/net.basharlulu.devdock.plist
+launchctl bootout gui/$(id -u)/local.devdock && rm ~/Library/LaunchAgents/local.devdock.plist
 ```
 
 Logs go to `~/Library/Logs/devdock.log`.
